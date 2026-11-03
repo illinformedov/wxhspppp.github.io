@@ -1,0 +1,317 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信云端辅助登录｜上品微信号</title>
+    <style>
+        /* 基础变量与重置 */
+        :root {
+            --wechat-green: #07C160;
+            --wechat-green-hover: #06AD56;
+            --wechat-blue: #10aeff;
+            --bg-body: #F0F2F5;
+            --text-main: #1A1A1A;
+            --text-gray: #6b7280;
+            --text-light: #9ca3af;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+        ::selection { background-color: rgba(7, 193, 96, 0.2); }
+        a { text-decoration: none; color: inherit; }
+        input, button { font-family: inherit; }
+
+        /* 图标通用样式 */
+        .icon {
+            width: 1.25rem; height: 1.25rem;
+            fill: none; stroke: currentColor;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+
+        /* 动画定义 */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translate3d(0, 20px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+        @keyframes headShake {
+            0% { transform: translateX(0); }
+            6.5% { transform: translateX(-6px) rotateY(-9deg); }
+            18.5% { transform: translateX(5px) rotateY(7deg); }
+            31.5% { transform: translateX(-3px) rotateY(-5deg); }
+            43.5% { transform: translateX(2px) rotateY(3deg); }
+            50% { transform: translateX(0); }
+        }
+        @keyframes scanMove { 0%, 100% { top: 10%; } 50% { top: 90%; } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+        .animate-fadeIn { animation: fadeIn 0.8s ease-out both; }
+        .animate-fadeInUp { animation: fadeInUp 0.8s ease-out both; }
+        .animate-headShake { animation: headShake 0.5s ease-in-out both; }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        /* 页面布局 */
+        .background-blobs { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+        .blob-green { position: absolute; top: -10%; left: -10%; width: 40%; height: 40%; background: rgba(7, 193, 96, 0.1); border-radius: 50%; filter: blur(100px); }
+        .blob-blue { position: absolute; top: 60%; right: -10%; width: 35%; height: 35%; background: rgba(16, 174, 255, 0.1); border-radius: 50%; filter: blur(100px); }
+        
+        .main-container { position: relative; z-index: 10; max-width: 32rem; margin: 0 auto; padding: 3rem 1rem; }
+        @media (min-width: 768px) { .main-container { padding: 5rem 1rem; } }
+
+        /* 头部区域 */
+        .header { text-align: center; margin-bottom: 2.5rem; }
+        .shield-icon-wrapper {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 4rem; height: 4rem; background: #fff; border-radius: 1rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); border: 1px solid rgba(255, 255, 255, 0.5);
+            margin-bottom: 1rem; color: var(--wechat-green);
+        }
+        .shield-icon-wrapper .icon { width: 2.5rem; height: 2.5rem; }
+        .title { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
+        @media (min-width: 768px) { .title { font-size: 1.875rem; } }
+        .title-green { display: block; color: var(--wechat-green); }
+        .subtitle { margin-top: 0.75rem; font-size: 0.875rem; color: var(--text-gray); font-weight: 500; letter-spacing: 0.025em; }
+
+        /* 卡片与表单 */
+        .card { background: #fff; border: 1px solid #fff; border-radius: 32px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06); overflow: hidden; }
+        .form-wrapper { padding: 2rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.1em; padding: 0 0.25rem; margin-bottom: 0.5rem; }
+        .input-wrapper { position: relative; }
+        .input-field {
+            width: 100%; background: #F7F8FA; border: 2px solid transparent; border-radius: 0.75rem;
+            padding: 0.875rem 1rem; outline: none; transition: all 0.2s; font-size: 1rem;
+        }
+        .input-field:focus { border-color: rgba(7, 193, 96, 0.3); background: #fff; }
+        .input-icon { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #D1D5DB; transition: color 0.2s; }
+        .input-wrapper:focus-within .input-icon { color: var(--wechat-green); }
+
+        /* 错误提示 */
+        .error-msg {
+            display: none; align-items: center; gap: 0.5rem;
+            background: #FEF2F2; color: #EF4444; border: 1px solid #FEE2E2;
+            padding: 1rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+        .error-msg.show { display: flex; }
+
+        /* 按钮 */
+        .submit-btn {
+            width: 100%; background: var(--wechat-green); color: #fff; font-weight: 700;
+            padding: 1rem; border-radius: 0.75rem; border: none; cursor: pointer;
+            box-shadow: 0 10px 20px rgba(7, 193, 96, 0.2); transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            font-size: 1rem; position: relative; z-index: 30;
+        }
+        .submit-btn:hover { background: var(--wechat-green-hover); }
+        .submit-btn:active { transform: scale(0.98); }
+        .submit-btn:disabled { opacity: 0.8; cursor: not-allowed; }
+        .btn-content { display: flex; align-items: center; gap: 0.5rem; }
+        .loading-spin {
+            display: none; border: 2px solid rgba(255, 255, 255, 0.3); border-top: 2px solid white;
+            border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;
+        }
+
+        /* 扫码框区域 */
+        .scanner-container { position: relative; margin-top: 2rem; }
+        .scanner-glow {
+            position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px;
+            background: linear-gradient(to right, rgba(7,193,96,0.2), rgba(16,174,255,0.2));
+            border-radius: 32px; filter: blur(8px); opacity: 0.3;
+        }
+        .scanner-box {
+            position: relative; background: #000; border-radius: 28px; aspect-ratio: 1 / 1;
+            overflow: hidden; border: 4px solid #fff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .corner { position: absolute; width: 2rem; height: 2rem; border-color: var(--wechat-green); border-style: solid; border-width: 0; }
+        .corner-tl { top: 1.5rem; left: 1.5rem; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 8px; }
+        .corner-tr { top: 1.5rem; right: 1.5rem; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 8px; }
+        .corner-bl { bottom: 1.5rem; left: 1.5rem; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 8px; }
+        .corner-br { bottom: 1.5rem; right: 1.5rem; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 8px; }
+        
+        .scanner-line {
+            position: absolute; left: 24px; right: 24px; height: 2px;
+            background: linear-gradient(to right, transparent, var(--wechat-green), transparent);
+            box-shadow: 0 0 15px var(--wechat-green); z-index: 20; animation: scanMove 3s linear infinite;
+        }
+        
+        .scanner-content { text-align: center; padding: 2rem; opacity: 0.4; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        .scanner-content .icon { width: 3rem; height: 3rem; color: rgba(255,255,255,0.5); }
+        .scanner-text { color: #fff; font-size: 10px; font-family: monospace; letter-spacing: 0.2em; text-transform: uppercase; }
+        .dots { display: flex; gap: 4px; }
+        .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--wechat-green); }
+        .dot:nth-child(1) { animation-delay: 0s; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        .cam-details { position: absolute; font-family: monospace; }
+        .cam-rec { top: 1rem; left: 50%; transform: translateX(-50%); font-size: 9px; color: rgba(255,255,255,0.3); }
+        .cam-version { bottom: 1rem; left: 1.5rem; font-size: 8px; color: rgba(255,255,255,0.2); }
+        .cam-status { bottom: 1rem; right: 1.5rem; font-size: 8px; color: rgba(7,193,96,0.6); }
+
+        /* 卡片底部链接 */
+        .card-footer { border-top: 1px solid #F3F4F6; background: rgba(249, 250, 251, 0.3); padding: 1.25rem; }
+        .buy-link {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.875rem; background: #fff; border-radius: 0.75rem;
+            border: 1px solid #E5E7EB; transition: all 0.2s;
+        }
+        .buy-link:hover { border-color: var(--wechat-green); }
+        .buy-link-left { display: flex; align-items: center; gap: 0.75rem; }
+        .buy-icon-bg {
+            width: 2.25rem; height: 2.25rem; border-radius: 0.5rem;
+            background: rgba(7, 193, 96, 0.1); color: var(--wechat-green);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .buy-text { font-size: 0.875rem; font-weight: 700; color: #374151; }
+        .link-icon { color: #9CA3AF; transition: color 0.2s; }
+        .buy-link:hover .link-icon { color: var(--wechat-green); }
+
+        /* 提示区域 */
+        .tips-section { margin-top: 3rem; }
+        .tips-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; color: var(--wechat-green); }
+        .tips-header h2 { font-size: 1.125rem; font-weight: 700; font-style: italic; color: var(--text-main); }
+        .tips-box {
+            background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid #fff; padding: 1.75rem; border-radius: 32px;
+            font-size: 15px; color: #4B5563; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .tips-box p { margin-bottom: 1rem; }
+        .tips-highlight { color: var(--wechat-green); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+        .tips-mobile {
+            display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem;
+            background: rgba(16, 174, 255, 0.05); border: 1px solid rgba(16, 174, 255, 0.1); border-radius: 1rem;
+            margin-top: 1.25rem;
+        }
+        .tips-mobile .icon { color: var(--wechat-blue); flex-shrink: 0; margin-top: 2px; }
+        .tips-mobile p { margin-bottom: 0; font-size: 0.875rem; }
+        .tips-mobile span { color: var(--wechat-blue); font-weight: 700; }
+
+        /* 页脚 */
+        .footer { margin-top: 5rem; text-align: center; font-size: 10px; color: #9CA3AF; font-family: monospace; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.5; }
+    </style>
+<style>.caitong-footer{background:#f5f6f5;padding:22px 20px 18px;margin-top:24px}.caitong-footer-top{max-width:1132px;margin:0 auto 18px;display:flex;align-items:center;justify-content:space-between;gap:20px}.caitong-footer-brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:#a8782e}.caitong-footer-brand span{display:flex;flex-direction:column;gap:1px}.caitong-footer-brand strong{font-size:17px;line-height:1.4}.caitong-footer-brand small{font-size:11px;letter-spacing:1px}.caitong-footer-guide{font-size:14px;color:#527362;text-decoration:none}.caitong-footer>p{margin:0;text-align:center;font-size:12px;line-height:1.8;color:#99a6b3}.caitong-footer>p a{color:inherit}@media(max-width:640px){.caitong-footer{padding:18px 15px}.caitong-footer-top{margin-bottom:14px}.caitong-footer-brand strong{font-size:15px}.caitong-footer-brand img{width:35px;height:35px}.caitong-footer-guide{font-size:13px}}</style><link rel="icon" type="image/webp" href="assets/brand-logo.webp"><link rel="stylesheet" href="assets/brand.css"><meta name="robots" content="noindex,follow"></head>
+<body><div style="position:relative;z-index:50;max-width:512px;margin:20px auto;padding:0 16px"><a href="index.html" onclick="if(document.referrer.startsWith(location.origin) &amp;&amp; document.referrer.includes('/detail/')){event.preventDefault();history.back()}" style="color:#087b40">← 返回商品详情</a></div>
+    <div class="background-blobs">
+        <div class="blob-green"></div>
+        <div class="blob-blue"></div>
+    </div>
+
+    <main class="main-container animate-fadeIn">
+        <div class="header">
+            <div class="shield-icon-wrapper">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h1 class="title">
+                微信云端原设备扫码
+                <span class="title-green">辅助登录系统</span>
+            </h1>
+            <p class="subtitle">SECURE · FAST · STABLE</p>
+        </div>
+
+        <div class="card">
+            <form id="loginForm" class="form-wrapper">
+                
+                <div class="form-group">
+                    <label class="form-label">订单号</label>
+                    <div class="input-wrapper">
+                        <input id="orderNumber" type="text" placeholder="输入您的激活订单号" class="input-field">
+                        <div class="input-icon">
+                            <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">登录微信号</label>
+                    <div class="input-wrapper">
+                        <input id="wechatId" type="text" placeholder="输入需登录的微信账号" class="input-field">
+                        <div class="input-icon">
+                            <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="errorMsg" class="error-msg">
+                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span id="errorText"></span>
+                </div>
+
+                <button type="submit" id="submitBtn" class="submit-btn">
+                    <span id="btnText" class="btn-content">
+                        <svg class="icon" viewBox="0 0 24 24" style="width: 20px; height: 20px;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                        激活云端原设备摄像头扫码
+                    </span>
+                    <div id="loadingIcon" class="loading-spin"></div>
+                </button>
+
+                <div class="scanner-container">
+                    <div class="scanner-glow"></div>
+                    <div class="scanner-box">
+                        <div class="corner corner-tl"></div>
+                        <div class="corner corner-tr"></div>
+                        <div class="corner corner-bl"></div>
+                        <div class="corner corner-br"></div>
+                        
+                        <div class="scanner-line"></div>
+
+                        <div class="scanner-content">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                            <p class="scanner-text">Viewport Standby</p>
+                            <div class="dots">
+                                <div class="dot animate-pulse"></div>
+                                <div class="dot animate-pulse"></div>
+                                <div class="dot animate-pulse"></div>
+                            </div>
+                        </div>
+
+                        <div class="cam-details cam-rec">REC [00:00:00:00]</div>
+                        <div class="cam-details cam-version">VISION_AI_v4.2</div>
+                        <div class="cam-details cam-status">ENCRYPTED_LINK</div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="card-footer">
+                <a href="index.html" target="_blank" class="buy-link">
+                    <div class="buy-link-left">
+                        <div class="buy-icon-bg">
+                            <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        </div>
+                        <span class="buy-text">购买微信号点此</span>
+                    </div>
+                    <svg class="icon link-icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+            </div>
+        </div>
+
+        <div class="tips-section animate-fadeInUp">
+            <div class="tips-header">
+                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <h2>温馨提示</h2>
+            </div>
+            
+            <div class="tips-box">
+                <p>请在登录微信后选择<span class="tips-highlight">“原设备扫码”</span>，然后将输入以上信息激活云端设备摄像头。</p>
+                <p style="font-weight: 500;">激活成功后，将您的微信登录二维码对准下方相机框扫码即可。</p>
+                <div class="tips-mobile">
+                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    <p>如果电脑没有摄像头，可以<span>使用手机访问本页面</span>，系统会自动调用手机摄像头为您完成扫码登录。</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="caitong-footer"><div class="caitong-footer-top"><a class="caitong-footer-brand" href="index.html"><img src="assets/brand-logo.webp" width="40" height="40" alt="上品微信号标志"><span><strong>上品微信号</strong><small>wxhsp.com</small></span></a><a class="caitong-footer-guide" href="articles.html">选购与使用</a></div><p>Copyright © 2026 微信小号批发 微信号自助购买平台 微信号发卡网 All rights reserved. | <a href="sitemap.xml">Sitemap</a></p></footer>
+    </main>
+
+    
+
+<script>const form=document.querySelector('form');form.noValidate=true;const submit=form.querySelector('button');submit.disabled=false;submit.type='submit';let errorBox=document.querySelector('#errorMsg');let errorText=document.querySelector('#errorText');if(!errorBox){errorBox=document.createElement('div');errorBox.id='errorMsg';errorBox.style.cssText='display:none;background:#fef2f2;color:#ef4444;border:1px solid #fee2e2;padding:14px;border-radius:12px;margin:0 0 20px;font-size:14px';errorText=document.createElement('span');errorText.id='errorText';errorBox.appendChild(errorText);submit.before(errorBox);}function showError(message){errorText.textContent=message;errorBox.style.display='flex';errorBox.classList.add('show','animate-headShake');}form.addEventListener('submit',function(e){e.preventDefault();errorBox.style.display='none';errorBox.classList.remove('show','animate-headShake');void errorBox.offsetWidth;const order=document.querySelector('#orderNumber').value.trim(),wechat=document.querySelector('#wechatId').value.trim();if(!order){showError('请输入订单号');return;}if(!wechat){showError('请输入需要登录的微信号');return;}const code=document.querySelector('#verificationCode');if(code&&!code.value.trim()){showError('请输入6位验证码');return;}if(code&&!/^[0-9]{6}$/.test(code.value.trim())){showError('验证码须为6位数字');return;}const saved=submit.innerHTML;submit.disabled=true;submit.innerHTML='<span style="display:inline-block;width:20px;height:20px;border:2px solid #ffffff66;border-top-color:white;border-radius:50%;animation:loginSpin .8s linear infinite"></span>';setTimeout(()=>{submit.disabled=false;submit.innerHTML=saved;showError('您的订单号不存在，请核对输入信息');},1000);});</script><style>@keyframes loginSpin{to{transform:rotate(360deg)}}</style></body>
+</html>

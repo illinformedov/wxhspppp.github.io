@@ -1,0 +1,1 @@
+document.addEventListener('click',e=>{const a=e.target.closest('[data-cp-category]');if(!a)return;e.preventDefault();const button=[...document.querySelectorAll('.filter-btn')].find(b=>b.dataset.category===a.dataset.cpCategory);if(button)button.click();});
